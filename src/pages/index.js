@@ -279,14 +279,19 @@ const parseCmFile = async(
   reader.onload = async() => {
     const cmFileContentBuffer = new Buffer(reader.result)
 
-    const data = await parser.parseSave(
-      cmFileContentBuffer,
-      dbMetaFileContent
-    )
+    try {
+      const data = await parser.parseSave(
+        cmFileContentBuffer,
+        dbMetaFileContent
+      )
 
-    const players = await dbToPlayersList(data, playerNamesFileContent)
-    const playersCsv = toCsv(players)
-    downloadStringAsFile('players.csv', playersCsv)
+      const players = await dbToPlayersList(data, playerNamesFileContent)
+      const playersCsv = toCsv(players)
+      downloadStringAsFile('players.csv', playersCsv)
+    } catch (err) {
+      console.error(err)
+      alert(err.message || String(err))
+    }
   }
 }
 

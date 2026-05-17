@@ -37,7 +37,15 @@ const parser = {
     },
 
     readDb: async (binaryData, xmlFile) => {
+        if (!xmlFile) {
+            throw new Error('XML meta file is required to read DB');
+        }
+
         let xmlData = await xml2js.parseStringPromise(xmlFile);
+        if (!xmlData || !xmlData.database || typeof xmlData.database.table === 'undefined') {
+            throw new Error('Invalid XML meta file format');
+        }
+
         let parsedXmlData = helpers.parseXmlDb(xmlData);
 
         let offset = binaryData.indexOf(databaseHeader);
@@ -139,9 +147,7 @@ const parser = {
                 bitDepth.push(tmpBitDepth[offset]);
 
                 let header = parsedXmlData.fieldNames[shortNames[ii]];
-                if (typeof header != 'undefined') {
-                    keys.push(header);
-                }
+                keys.push(typeof header != 'undefined' ? header : '__' + shortNames[ii]);
                 allShortNames.push(shortNames);
             }
 
@@ -188,7 +194,7 @@ const parser = {
 
                             // Add rangeLow to the value
                             const rangeLowKey = parsedXmlData.tableNames[tableNames[i]] + parsedXmlData.fieldNames[shortNames[iii]];
-                            value = val + parsedXmlData.fieldRange[rangeLowKey];
+                            value = val + (parsedXmlData.fieldRange[rangeLowKey] || 0);
                             break;
                         case 4: // float
                             reader.position = currentPosition + (bitOffsets[iii] >> 3);
@@ -197,7 +203,7 @@ const parser = {
                         default:
                             break;
                     }
-                    record[keys[Object.keys(record).length]] = value;
+                    record[keys[iii]] = value;
                 }
                 reader.position = currentPosition + recordSize;
                 newContent.push(record);
@@ -209,6 +215,10 @@ const parser = {
 
     parseSave: async (binaryData, xmlFile) => {
         const dbs = await parser.unpackDbs(binaryData)
+
+        if (!dbs || !Array.isArray(dbs) || dbs.length === 0) {
+            throw new Error('No database blobs found in binary data');
+        }
 
         return Promise.all(dbs.map(db => {
             return parser.readDb(db, xmlFile);
